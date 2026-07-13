@@ -150,9 +150,11 @@ that the final commits before the drop survived.
 connection grabs 20 values and discards the unused ones, and we open a connection per probe.
 `COUNT(*) = COUNT(DISTINCT id)` - no rows are missing.
 
-**`SLA_TARGET_S` defaults to 120s.** That figure was inherited from the original demo and has
-not been checked against Oracle's published RTO. Verify it before quoting it, or ignore the
-comparison and present your measured number on its own.
+**`SLA_TARGET_S` defaults to 120s**, which matches Oracle's published target for a **local**
+Autonomous Data Guard standby: RTO 2 minutes, RPO 0 seconds, for both switchover and failover
+([About Standby Databases](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-data-guard-about.html)).
+A **cross-region** standby is a different story - RTO under 10 minutes, and manual failover can
+lose up to a minute of data. Raise `SLA_TARGET_S` if your peer is cross-region.
 
 ## Cost
 
@@ -167,3 +169,30 @@ COMMIT;
 ```
 
 Note this does **not** reset the identity counter; new rows continue from the last id.
+
+## Reference
+
+- [Oracle Autonomous Database (serverless) documentation](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/) - provisioning, wallets, Database Actions
+- [Autonomous Data Guard](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-data-guard-about.html) - enabling a peer, switchover vs failover, the RTO/RPO targets
+- [python-oracledb driver documentation](https://python-oracledb.readthedocs.io/) - thin-mode connections, mTLS wallets, and the `retry_count` / `transport_connect_timeout` descriptor parameters this app overrides
+- [Oracle LiveLabs](https://livelabs.oracle.com/) - free hands-on workshops on Oracle's own tenancy, including real 2-node RAC and Data Guard labs. No credit card, no quota
+- [OCI Always Free tier](https://www.oracle.com/cloud/free/) - 2 Autonomous Databases free forever. Note that **Autonomous Data Guard is not available on the free tier** - the peer needs a paid (or trial-credit) tenancy
+
+## Getting help
+
+- Check the Autonomous Data Guard docs above before assuming the app is wrong - most surprises (`DATABASE_ROLE` never changing, the driver's silent 60s retry) are Oracle behaving as designed
+- If the container starts but every probe fails, it's almost always the wallet: confirm `wallet/` contains the unzipped files, that `DB_DSN` matches an alias in your own `wallet/tnsnames.ora`, and that `WALLET_PASSWORD` is the one you set at download time
+- If a switchover shows `Same instance - connectivity blip`, the switchover did not happen. Check **Work requests** in the OCI console; a standby that is still provisioning will refuse one
+- Never commit your wallet or `.env`. Both are gitignored - keep it that way
+- For questions or collaboration, contact me through my portfolio: [ravindubandara.dev](https://ravindubandara.dev)
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Keep credentials out of commits - wallets and `.env` files must stay local (see [.gitignore](.gitignore))
+4. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
